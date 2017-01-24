@@ -1,6 +1,6 @@
 # vue-morpion
 
-> A Vue.js project
+> Vue JS 实现人机对战版五子棋
 
 ## Build Setup
 

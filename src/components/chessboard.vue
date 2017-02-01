@@ -130,8 +130,8 @@ export default {
       }
       return false;
     },
-    //检查水平方向 flag:代表是否包换空格，判断权值的时候使用
-    horizontal (cell,flag) {
+    //检查水平方向
+    horizontal (cell) {
       var num = 1;
       for (var i = 1; i <= this.success_num; i++) {
         var leftIndex = cell.index - i;
@@ -159,7 +159,7 @@ export default {
       return num;
     },
     //垂直方向
-    vertical (cell,flag) {
+    vertical (cell) {
       var num = 1;
       for (var i = 1; i <= this.success_num; i++) {
         var upIndex = cell.index - i * this.cols; 
@@ -187,7 +187,7 @@ export default {
       return num;
     },
     //左上到右下的方向
-    leftUpToRightDown (cell,flag) { 
+    leftUpToRightDown (cell) { 
       var num = 1,//代表当前棋子
           leftUpIndex,
           rightDownIndex;
@@ -216,7 +216,7 @@ export default {
       return num;
     },
     //右上到左下的方向
-    rightUpToLeftDown (cell,flag) { 
+    rightUpToLeftDown (cell) { 
       var num = 1,
           rightUpIndex,
           leftDownIndex; 
@@ -330,9 +330,7 @@ export default {
     //电脑下棋
     aiPlayChess () {
 
-      //在winListC中搜索有效的坐标，并计算每个坐标的分值 返回最大分值 --- 进攻
-      //在winlistP中搜素有效坐标，并计算每个坐标的分值，返回最大的分值 --- 防守
-      //同等分值下 进攻优先
+      //根据分值获得最优位置
       var cell = this.getPlayCell();
       this.playChess(cell);
     },
@@ -377,7 +375,7 @@ export default {
 
         return obj2.num - obj1.num;
       })
-      debugger
+      
       return this.cells[res[0]['index']];
     },
     //每次下完棋后重置 winlist，把依赖某个点，且改点不是本方棋子的所有集合都删除

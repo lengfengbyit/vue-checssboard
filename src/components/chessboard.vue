@@ -9,13 +9,31 @@
 </template>
 
 <script>
+//求和
+Array.prototype.sum = function(){
+  var result = 0;
+  this.forEach(function(v){
+    result += v;
+  })
+  return result;
+}
+//删除指定值得元素
+Array.prototype.removeByVal = function(val){
+  var res = [];
+  for (var i = 0; i < this.length; i++) {
+    if(this[i] != val){
+      res.push(val);
+    }
+  }
+  return res;
+}
 export default {
   name: 'checssboard',
   data () {
     return {
-      title: 'Vue ',
-      cols:5,  //棋盘列数
-      rows:5,  //棋盘行数
+      title: 'Vue 五子棋',
+      cols:16,  //棋盘列数
+      rows:16,  //棋盘行数
       cell_size:50, //棋盘格子的宽度和高度
       cells: {}, //棋盘所有格子
       cells_num: 0, //棋盘所有格子的数目
@@ -32,8 +50,19 @@ export default {
           color: 'white'
         }
       },
-      winListP:[],//对人  的五元组
-      winListC:[]//对电脑的 五元组
+      winList:[],
+      scoreMap: {
+        'blank': 7, //五元组为空
+        'B':35,
+        'BB':800,
+        'BBB':15000,
+        'BBBB':800000,
+        'W':15,
+        'WW':400,
+        'WWW':1800,
+        'WWWW':100000,
+        'polluted':0 //五元组中黑白都有
+      }
     }
   },
   computed: {
@@ -69,10 +98,18 @@ export default {
         cell.classObj['cell-' + this.currUser.color] = true;
         this.currUser = this.users[this.currUser.type];
         this.opera_num ++;
+        this.resetWinList();
 
         if(this.isSuccess(cell)){
-          alert('game over');
+          if(cell.type == 1){
+            alert('你赢了');
+          }else{
+            alert('电脑赢了');
+          }
           window.location.reload();
+        }else if(this.currUser.type == 2){
+
+          this.aiPlayChess(); //电脑下棋
         }
       }
     },
@@ -93,15 +130,15 @@ export default {
       }
       return false;
     },
-    //检查水平方向
-    horizontal (cell) {
+    //检查水平方向 flag:代表是否包换空格，判断权值的时候使用
+    horizontal (cell,flag) {
       var num = 1;
       for (var i = 1; i <= this.success_num; i++) {
         var leftIndex = cell.index - i;
         if(Math.floor(leftIndex / this.cols) != cell.y){ //保证在同一行
           break;
         } 
-        if(this.cells[leftIndex].type == cell.type){
+        if(this.cells[leftIndex].type == cell.type || (flag && this.cells[leftIndex].type == 0)){
           num++;
         }else{
           break;
@@ -113,7 +150,7 @@ export default {
         if(Math.floor(rightIndex / this.cols) != cell.y){
           break;
         }
-        if(this.cells[rightIndex].type == cell.type){
+        if(this.cells[rightIndex].type == cell.type || (flag && this.cells[rightIndex].type == 0)){
           num++;
         }else{
           break;
@@ -122,14 +159,14 @@ export default {
       return num;
     },
     //垂直方向
-    vertical (cell) {
+    vertical (cell,flag) {
       var num = 1;
       for (var i = 1; i <= this.success_num; i++) {
         var upIndex = cell.index - i * this.cols; 
         if(upIndex < 0){
           break;
         }
-        if(this.cells[upIndex].type == cell.type){
+        if(this.cells[upIndex].type == cell.type || (flag && this.cells[upIndex].type == 0)){
           num ++;
         }else{
           break;
@@ -140,7 +177,7 @@ export default {
         if(downIndex > this.cells_num - 1){ 
           break;
         }
-        if(this.cells[downIndex].type == cell.type){
+        if(this.cells[downIndex].type == cell.type || (flag && this.cells[downIndex].type == 0)){
           num ++;
         }else{
           break;
@@ -150,7 +187,7 @@ export default {
       return num;
     },
     //左上到右下的方向
-    leftUpToRightDown (cell) { 
+    leftUpToRightDown (cell,flag) { 
       var num = 1,//代表当前棋子
           leftUpIndex,
           rightDownIndex;
@@ -159,7 +196,7 @@ export default {
         if(leftUpIndex < 0){
           break;
         }
-        if(this.cells[leftUpIndex].type == cell.type){
+        if(this.cells[leftUpIndex].type == cell.type || (flag && this.cells[leftUpIndex].type == 0)){
           num++;
         }else{
           break;
@@ -170,7 +207,7 @@ export default {
         if(rightDownIndex > this.cells_num - 1){
           break;
         }
-        if(this.cells[rightDownIndex].type == cell.type){
+        if(this.cells[rightDownIndex].type == cell.type || (flag && this.cells[rightDownIndex].type == 0)){
           num++;
         }else{
           break;
@@ -179,16 +216,16 @@ export default {
       return num;
     },
     //右上到左下的方向
-    rightUpToLeftDown (cell) {
+    rightUpToLeftDown (cell,flag) { 
       var num = 1,
           rightUpIndex,
-          leftDownIndex;
+          leftDownIndex; 
       for (var i = 1; i <= this.success_num; i++) {
         rightUpIndex = cell.index - (this.cols - 1) * i;
-        if(rightUpIndex < 0){
+        if(rightUpIndex <= 0 || this.cells[rightUpIndex].x <= cell.x){
           break;
         }
-        if(this.cells[rightUpIndex].type == cell.type){
+        if(this.cells[rightUpIndex].type == cell.type || (flag && this.cells[rightUpIndex].type == 0)){
           num++;
         }else{
           break;
@@ -197,10 +234,10 @@ export default {
 
       for (var i = 1; i <= this.success_num; i++) {
         leftDownIndex = cell.index + (this.cols - 1) * i;
-        if(leftDownIndex > this.cells_num - 1){
+        if(leftDownIndex >= this.cells_num - 1 || this.cells[leftDownIndex].y <= cell.y){
           break;
         }
-        if(this.cells[leftDownIndex].type == cell.type){
+        if(this.cells[leftDownIndex].type == cell.type || (flag && this.cells[leftDownIndex].type == 0)){
           num++;
         }else{
           break;
@@ -232,7 +269,7 @@ export default {
         }
       }
     },
-    //初始化 五元组 能连城一条线的五个格子的集合
+    //初始化 五元组 能连城一条线的五个格子的集合(能赢的规则)
     initWinList () { 
 
       var _self = this,
@@ -240,16 +277,16 @@ export default {
           index,
           minIndex,
           maxIndex;
-      //横向连接
+      
       Object.values(this.cells).forEach(function(cell,i){
-
+        //横向连接
         index = cell.y * _self.cols + cell.x; //计算出 当前格子对应的索引
         if(Math.floor( (index + 4) / _self.cols) == cell.y){ //保证在同一行
 
           winList.push({
             indexs: Array.apply(null,{length:_self.success_num}).map(function(_,i){
               return index + i;
-            })
+            }),
           });
         }
         //竖直方向连接
@@ -259,7 +296,7 @@ export default {
           winList.push({
             indexs: Array.apply(null,{length:_self.success_num}).map(function(_,i){
               return index + _self.cols * i;
-            }) 
+            }),
           })
         }
 
@@ -271,7 +308,7 @@ export default {
           winList.push({
             indexs: Array.apply(null,{length:_self.success_num}).map(function(_,i){
               return index + (_self.cols + 1) * i;
-            })
+            }),
           })
         }
 
@@ -279,21 +316,16 @@ export default {
         minIndex = index - (_self.cols - 1) * 4;
         //最小索引不能小于 0 ，X轴坐标必须大于当前X轴坐标
         if(minIndex >= 0 &&  minIndex % _self.cols > cell.x){
-          // debugger
+         
           winList.push({
             indexs: Array.apply(null,{length:_self.success_num}).map(function(_,i){
               return index - (_self.cols - 1) * i;
             }),
-            status: 1,//状态，标识是否可用,0:表示不可以用，1：表示可用
           })
         }
-
-
       })
-      
-      this.winListC = winList;
-      this.winListP = winList.concat([]);
-      
+
+      this.winList = winList;
     },
     //电脑下棋
     aiPlayChess () {
@@ -301,103 +333,115 @@ export default {
       //在winListC中搜索有效的坐标，并计算每个坐标的分值 返回最大分值 --- 进攻
       //在winlistP中搜素有效坐标，并计算每个坐标的分值，返回最大的分值 --- 防守
       //同等分值下 进攻优先
-      
-      var c_cell = this.getPlayCell(this.winListC);
-      var p_cell = this.getPlayCell(this.winListP);
-
-      if(c_cell.score >= p_cell.score){
-
-        this.playChess(c_cell);
-      }else{
-
-        this.playChess(p_cell);
-      }
+      var cell = this.getPlayCell();
+      this.playChess(cell);
     },
+    /**
+     * 根据分值获得电脑下棋的位置
+     * @return {[type]} [description]
+     */
+    getPlayCell () {
 
-    //返回最佳下棋的格子
-    //{
-    //  index:  0,//格子的索引
-    //  score: 100,//最大分值
-    //}
-    getPlayCell (winList) {
+      var maxScore = 0,
+          maxScoreWin = [];//最大分值的五元组
+      this.winList.forEach(function(val){
 
+        if(val.score > maxScore){
+          maxScore = val.score;
+          maxScoreWin = [];
+          maxScoreWin.push(val);
+        }else if(val.score == maxScore){
+          maxScoreWin.push(val);
+        }
+      })
+
+      //获得出现频率最高的索引
       var _self = this;
-      var resCell = {},//返回的cell对象
-          maxScore = 0,
-          score = 0; 
-      winList.forEach(function(val){
+      var res = {};
+      maxScoreWin.forEach(function(val){
 
-        if(val.status == 1){ //状态可用
-
-          val.indexs.forEach(function(index){
-            score = _self.getScoreByIndex(index);
-            if(score > maxScore){
-              maxScore = score; //记录最大score
-              resCell = _self.cells[index]; //记录单元格
+        val.indexs.forEach(function(index){
+          if(_self.cells[index].type == 0){
+          
+            if(res.hasOwnProperty(index)){
+              res[index].num ++;
+            }else{
+              res[index] = {index:index,num:1};
             }
-          })
-        }
+          }
+        })
       })
 
-      //保存最大分值
-      resCell.score = maxScore;
+      res = Object.values(res);
+      res.sort(function(obj1,obj2){
 
-      return resCell;
-    },
-    //根据单元格索引，获得单元格的分值
-    getScoreByIndex (index) {
-
-      var score = 0;
-      var h_num = this.horizontal(this.cells[index]),//如果电脑下在该位置，则水平方向上的连子数
-          v_num = this.vertical(this.cells[index]),//垂直方向的连子数
-          ld_num = this.leftUpToRightDown(this.cells[index]),//左上到右下的连子数
-          rd_num = this.rightUpToLeftDown(this.cells[index]);//右上到左下的连子数
-      [h_num,v_num,ld_num,rd_num].map(function(num,i){
-        switch(num){
-          case 0 : score += 0;break;
-          case 1 : score += 10;break;
-          case 2 : score += 100;break;
-          case 3 : score += 1000;break;
-          case 4 : score += 10000;break;
-          case 5 : score += 100000;break;
-        }
+        return obj2.num - obj1.num;
       })
-
-      return score;
+      debugger
+      return this.cells[res[0]['index']];
     },
     //每次下完棋后重置 winlist，把依赖某个点，且改点不是本方棋子的所有集合都删除
     resetWinList () {
 
       var _self = this;
-      this.winListC.forEach(function(val,i){
 
-        if(val.status == 1){
+      this.winList.forEach(function(val){
 
-          val.indexs.forEach(function(index){
+        var cellTypes = [];//获得五元组中每个单元格的状态
+        val.indexs.forEach(function(index){
 
-            if(_self.cells[index].type == 1){ //1代表白子，用户先下
-              _self.winListC[i].status = 0; //跟新五元组 依赖的坐标已被 用户下了，所以该坐标失效
-              return;
+          cellTypes.push(_self.cells[index].type);
+        })
+
+        var typeSum = cellTypes.sum();
+        var validNum = cellTypes.removeByVal(0).length;//有效棋子的数量
+        switch(typeSum){
+          case 0:val.score = _self.scoreMap['blank'];break;
+          case 1: val.score = _self.scoreMap['W'];break;//代表四个空一个白色
+          case 2: //代表两个白色三个空或者一个黑色四个空
+            if(validNum == 1){//一个黑色
+              val.score = _self.scoreMap['B'];
+            }else if(validNum == 2){//两个白色
+              val.score = _self.scoreMap['WW'];
+            }else{
+              val.score = _self.scoreMap['polluted'];
             }
-          })
-        }
-        
-      })
-
-      this.winListP.forEach(function(val,i){
-
-        if(val.status == 1){
-
-          val.indexs.forEach(function(index){
-
-            if(_self.cells[index].type == 2){ //2代表黑子，电脑已经下了
-              _self.winListP[i].status = 0; //跟新五元组 依赖的坐标已被 电脑下了，所以该坐标失效
-              return;
+          break;
+          case 3: //代表有三个白色或者一个白色一个黑色
+            if(validNum == 3){
+              val.score = _self.scoreMap['WWW'];
+            }else{
+              val.score = _self.scoreMap['polluted'];
             }
-          })
-        }
-      })
+          break;
+          case 4: //代表有四个白色或者两个黑色或者一个黑色两个白色
+            if(validNum == 4){
+              val.score = _self.scoreMap['WWWW'];
+            }else if(validNum == 2){
+              val.score = _self.scoreMap['BB'];
+            }else{
+              val.score = _self.scoreMap['polluted'];
+            }
+          break;
+          case 6://三个黑色或其他
+            if(validNum === 3){
+              val.score = _self.scoreMap['BBB'];
+            }else{
+              val.score = _self.scoreMap['polluted'];
+            }
+          break;
+          case 8://四个黑色或其他
+            if(validNum == 4){
+              val.score = _self.scoreMap['BBBB'];
+            }else{
+              val.score = _self.scoreMap['polluted'];
+            }
+          break;
+          default: val.score = _self.scoreMap['polluted'];break;
 
+        }
+       
+      })
     }
   },
   created  () {
